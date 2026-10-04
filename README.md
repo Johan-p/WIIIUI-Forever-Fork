@@ -48,6 +48,8 @@ Custom themes (your own art folders) are **not supported** in this fork. If you 
 
 Requires **World of Warcraft: Forever** or **retail**. Vanilla 1.12 and unofficial clients are not supported.
 
+### Install by hand
+
 1. [Download the addon](https://github.com/Johan-p/WIIIUI-Forever-Fork/archive/refs/heads/master.zip)
 2. Unpack the zip. Inside is a folder named `WIIIUI-Forever-Fork-master`.
 3. Rename that folder to `WIIIUI`. The folder name must be exactly `WIIIUI`, or the game ignores the addon.
@@ -57,13 +59,35 @@ Requires **World of Warcraft: Forever** or **retail**. Vanilla 1.12 and unoffici
 5. Start the game, or restart it if it was running. A new addon needs a full restart, not just `/reload`.
 6. Make sure **WIIIUI** is ticked in the AddOns list on the character select screen.
 
-**Alternative: install with git** (no renaming needed, and updating is just `git pull`). Open a terminal in your AddOns folder and run:
+### Install with git
+
+For players who have git installed. No renaming is needed, and updating later is one command.
+
+1. Open a terminal in your AddOns folder:
+   * **WoW Forever (beta):** `World of Warcraft\_classic_beta_\Interface\AddOns`
+   * **Retail:** `World of Warcraft\_retail_\Interface\AddOns`
+2. Run:
+
+   ```
+   git clone https://github.com/Johan-p/WIIIUI-Forever-Fork.git WIIIUI
+   ```
+
+   The trailing `WIIIUI` sets the folder name. It must be exactly `WIIIUI`, so you do not need to rename anything.
+3. Start the game, or restart it if it was running. Then make sure **WIIIUI** is ticked in the AddOns list on the character select screen.
+
+On Windows, if the game is installed under `C:\Program Files (x86)`, open the terminal as administrator, or git cannot write there.
+
+### Updating
+
+**If you installed with git:** from your AddOns folder, run:
 
 ```
-git clone https://github.com/Johan-p/WIIIUI-Forever-Fork.git WIIIUI
+git -C WIIIUI pull
 ```
 
-The trailing `WIIIUI` sets the folder name. To update later, run `git pull` inside the `WIIIUI` folder and restart the game.
+This does the same as running `git pull` inside the `WIIIUI` folder. Then restart the game. A new or renamed file needs a full restart, not just `/reload`.
+
+**If you installed by hand:** download the zip again and replace the `WIIIUI` folder with the new one, repeating the rename from the steps above. Your settings are kept, because the game stores them outside the addon folder.
 
 ## Getting started
 
