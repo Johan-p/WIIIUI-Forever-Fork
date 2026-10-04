@@ -664,6 +664,7 @@ function WIIIUI.Theme.MinimapPieceGeometry(uiScale, theme)
   local top = m.minimapOffsetY + m.minimapSize / 2
   local bottom = m.minimapOffsetY - m.minimapSize / 2
   local right = m.minimapOffsetX + m.minimapSize / 2
+  local left = m.minimapOffsetX - m.minimapSize / 2
 
   return {
     mail = minimapSlotGeometry(uiScale, theme, 4),
@@ -693,6 +694,15 @@ function WIIIUI.Theme.MinimapPieceGeometry(uiScale, theme)
       relativePoint = "CENTER",
       offsetX = right - uiScale * 0.01,
       offsetY = top - uiScale * 0.01,
+      size = uiScale * 0.075,
+    },
+    -- spec 0011: clear of the top bar and the tallest left ornament, the same
+    -- for every theme (the art above the map is transparent).
+    dayNight = {
+      point = "BOTTOMLEFT",
+      relativePoint = "CENTER",
+      offsetX = left,
+      offsetY = top + uiScale * 0.125,
       size = uiScale * 0.075,
     },
   }

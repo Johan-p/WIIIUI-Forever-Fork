@@ -2,6 +2,8 @@
 -- console art in place of Blizzard's hidden cluster. Plain frames, except the
 -- calendar: a secure click-through to Blizzard's GameTimeFrame (spec 0007
 -- §Risks). No method is ever called on a Blizzard frame.
+-- Spec 0011 adds the day/night icon: Forever only, so it exists only where the
+-- game provides the signal and the art.
 local _, WIIIUI = ...
 
 WIIIUI.MinimapPieces = WIIIUI.MinimapPieces or {}
@@ -24,6 +26,34 @@ local function gameRuleActive(name)
   return rules.IsGameRuleActive(members[name]) and true or false
 end
 
+-- Blizzard's Diel indicator art (Blizzard_Minimap/Camelot/Diel.lua:3-5, forever
+-- e3ecc27). Forever only: spec 0011.
+local DAY_NIGHT_ATLAS = {
+  border = "UI-HUD-Minimap-Frame-Cycle",
+  day = "UI-HUD-Minimap-DayCycle",
+  night = "UI-HUD-Minimap-NightCycle",
+}
+
+-- RegisterEvent raises for an event the client doesn't know (wiki
+-- API_Frame_RegisterEvent), so the event is checked before anything uses it.
+local function dielEventValid()
+  local events = _G.C_EventUtils
+  return events ~= nil and events.IsEventValid ~= nil and events.IsEventValid("DIEL_CYCLE_CHANGED") == true
+end
+
+local function dayNightAtlasesResolve()
+  local texture = _G.C_Texture
+  if not (texture and texture.GetAtlasInfo) then
+    return false
+  end
+  for _, atlas in pairs(DAY_NIGHT_ATLAS) do
+    if not texture.GetAtlasInfo(atlas) then
+      return false
+    end
+  end
+  return true
+end
+
 -- One place answering "does this piece exist here": the API is present and
 -- the game rule hasn't switched the feature off.
 local function available(piece)
@@ -35,6 +65,10 @@ local function available(piece)
   end
   if piece == "calendar" then
     return _G.C_DateAndTime ~= nil and _G.GameTimeFrame ~= nil and not gameRuleActive("IngameCalendarDisabled")
+  end
+  if piece == "dayNight" then
+    local dates = _G.C_DateAndTime
+    return dates ~= nil and dates.IsDayTime ~= nil and dielEventValid() and dayNightAtlasesResolve()
   end
   return false
 end
@@ -269,6 +303,57 @@ local function place(frame, anchor, g)
   frame:ClearAllPoints()
   frame:SetPoint(g.point, anchor, g.relativePoint, g.offsetX, g.offsetY)
   frame:SetSize(g.size, g.size)
+end
+
+-- Blizzard draws both atlases at native size, and the sun/moon atlas is smaller
+-- than the border's, so the sun/moon is scaled by the same ratio to stay inside
+-- the ring at any frame size (spec 0011 Option A). The atlas of the current
+-- state is used, so a flip refits.
+local function fitDayNight(frame)
+  local info = _G.C_Texture and _G.C_Texture.GetAtlasInfo
+  if not (info and frame.iconAtlas) then
+    return
+  end
+  local borderInfo = info(DAY_NIGHT_ATLAS.border)
+  local iconInfo = info(frame.iconAtlas)
+  if not (borderInfo and iconInfo) then
+    return
+  end
+  local width, height = frame:GetSize(true)
+  frame.icon:SetSize(width * iconInfo.width / borderInfo.width, height * iconInfo.height / borderInfo.height)
+end
+
+-- Blizzard's composition: border over the sun/moon, both centred (Diel.lua:25-26,
+-- 38-44).
+local function ensureDayNight(parent)
+  if P.dayNight then
+    return P.dayNight
+  end
+
+  local frame = CreateFrame("Frame", nil, parent)
+  frame:EnableMouse(false)
+  frame.border = frame:CreateTexture(nil, "OVERLAY", nil, 1)
+  frame.border:SetAllPoints(frame)
+  frame.icon = frame:CreateTexture(nil, "BACKGROUND", nil, 0)
+  frame.icon:SetPoint("CENTER", frame, "CENTER")
+  frame:SetScript("OnSizeChanged", fitDayNight)
+  P.dayNight = frame
+  return frame
+end
+
+local function setDayNight(isDay)
+  local frame = P.dayNight
+  if frame then
+    frame.iconAtlas = isDay and DAY_NIGHT_ATLAS.day or DAY_NIGHT_ATLAS.night
+    frame.icon:SetAtlas(frame.iconAtlas)
+    fitDayNight(frame)
+  end
+end
+
+local function refreshDayNight()
+  if available("dayNight") then
+    setDayNight(_G.C_DateAndTime.IsDayTime())
+  end
 end
 
 -- Font base sizes at uiScale 240, grown through Theme.ScaledSize like the other
@@ -644,6 +729,17 @@ function P.Build()
     applyPieceFont(calendar.dayText, CLOCK_FONT_SIZE)
   end
   refreshCalendar()
+
+  local dayNight = ensureDayNight(left)
+  dayNight:SetParent(left)
+  WIIIUI.Layers.Apply(dayNight, "minimap.piece")
+  place(dayNight, minimapTexture, geometry.dayNight)
+  local present = available("dayNight")
+  dayNight:SetShown(present)
+  if present then
+    dayNight.border:SetAtlas(DAY_NIGHT_ATLAS.border)
+  end
+  refreshDayNight()
 end
 
 -- Not unit events, so plain registration. Nothing polls: the mail state only
@@ -683,5 +779,16 @@ end
 
 -- The day also rolls over from the clock tick, at midnight (spec 0007 §3.4).
 WIIIUI.On("PLAYER_ENTERING_WORLD", refreshCalendar)
+
+-- A flip during a loading screen sends no event (spec 0011 §Answers 2).
+WIIIUI.On("PLAYER_ENTERING_WORLD", refreshDayNight)
+
+-- Guarded at file scope: on retail the unknown event would raise and abort
+-- this file before its RegisterBuild (spec 0011 §Answers 1).
+if dielEventValid() then
+  WIIIUI.On("DIEL_CYCLE_CHANGED", function(isDayTime)
+    setDayNight(isDayTime)
+  end)
+end
 
 WIIIUI.RegisterBuild("MinimapPieces.Build", P.Build, { after = { "Console.BuildLeft", "Blizzard.BuildMinimap" } })
