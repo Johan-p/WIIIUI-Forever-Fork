@@ -261,6 +261,59 @@ local function updatePowerBars()
   updateMana()
 end
 
+-- spec 0010: BreakUpLargeNumbers is native but not in the generated API
+-- docs, so it is resolved per call and falls back to plain digits.
+local function fmt(value)
+  local breakUp = _G.BreakUpLargeNumbers
+  if type(breakUp) == "function" then
+    return breakUp(value)
+  end
+  return tostring(value)
+end
+
+local XP_LABEL_COLOR = "|cffffd100"
+
+local function goldLine(label, value)
+  return XP_LABEL_COLOR .. label .. ":|r " .. value
+end
+
+-- Pure: nil at max level (UnitXPMax == 0), so the caller shows nothing.
+-- Rested is a raw amount, never a percentage (spec 0010).
+function WIIIUI.Bars.XPTooltipLines(cur, max, rested)
+  if type(max) ~= "number" or max <= 0 then
+    return nil
+  end
+  cur = cur or 0
+  local togo = max - cur
+  return {
+    goldLine("Experience required to level up", fmt(max)),
+    goldLine("Experience until next level",
+      fmt(togo) .. string.format(" (%.2f %%)", togo / max * 100)),
+    goldLine("Current Experience",
+      fmt(cur) .. string.format(" (%.2f %%)", cur / max * 100)),
+    goldLine("Rested Experience", fmt(rested or 0)),
+  }
+end
+
+-- Degrade, not a decision (as InfoIcons.ShowTooltip): any missing API leaves
+-- the tooltip unshown rather than raising from a mouse script.
+local function showXPTooltip(bar)
+  pcall(function()
+    local lines = WIIIUI.Bars.XPTooltipLines(UnitXP("player"), UnitXPMax("player"), GetXPExhaustion())
+    if not lines then
+      if GameTooltip:GetOwner() == bar then
+        GameTooltip:Hide()
+      end
+      return
+    end
+    GameTooltip:SetOwner(bar, "ANCHOR_TOP")
+    for _, line in ipairs(lines) do
+      GameTooltip:AddLine(line, 1, 1, 1)
+    end
+    GameTooltip:Show()
+  end)
+end
+
 -- spec 0001 §Phased plan "C4 XP bar + tracking-bar starve/hide". Builds two
 -- plain StatusBars (Bars.lua's health/power convention -- no left/right
 -- endcap art, spec 0001 §1.2's "one plain StatusBar" deferral noted in
@@ -284,6 +337,15 @@ local function buildXPBar(anchor, uiScale)
 
     bar.levelText = bar:CreateFontString(nil, "OVERLAY")
     bar.levelText:SetPoint("CENTER", bar, "CENTER", 0, 0)
+
+    -- The explicit flags are set after the scripts so they win whatever the
+    -- scripts imply (SetScript enables the mouse, API_ScriptRegion_EnableMouse
+    -- on warcraft.wiki.gg); the bar must not take the portrait's clicks
+    -- (spec 0010 Option A).
+    bar:SetScript("OnEnter", function(self) showXPTooltip(self) end)
+    bar:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    bar:SetMouseMotionEnabled(true)
+    bar:SetMouseClickEnabled(false)
 
     WIIIUI.Bars.xp = bar
   end
@@ -364,6 +426,15 @@ local function updateXP()
   else
     bar:Hide()
     rested:Hide()
+    if GameTooltip and GameTooltip:GetOwner() == bar then
+      GameTooltip:Hide()
+    end
+  end
+
+  -- IsShown: Hide() need not clear the owner, so ownership alone could re-show
+  -- a tooltip after OnLeave. Never take over another frame's tooltip.
+  if ok and GameTooltip and GameTooltip:IsShown() and GameTooltip:GetOwner() == bar then
+    showXPTooltip(bar)
   end
 end
 
