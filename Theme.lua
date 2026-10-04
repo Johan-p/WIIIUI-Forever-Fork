@@ -687,7 +687,7 @@ function WIIIUI.Theme.MinimapPieceGeometry(uiScale, theme)
       relativePoint = "CENTER",
       offsetX = left,
       offsetY = top + uiScale * 0.125,
-      size = uiScale * 0.075,
+      size = uiScale * 0.12,
     },
   }
 end
