@@ -100,6 +100,7 @@ addEntry("MinimapPieces.zone.text", "fontstring")
 addEntry("MinimapPieces.clock", "frame")
 addEntry("MinimapPieces.clock.text", "fontstring")
 addEntry("MinimapPieces.calendar", "frame", { secure = true })
+addEntry("MinimapPieces.dayNight", "frame")
 
 WIIIUI.registry = registry
 WIIIUI.Customizer.byId = registryById
